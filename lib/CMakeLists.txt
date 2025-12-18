@@ -19,6 +19,7 @@ target_include_directories(lib PUBLIC
 target_link_libraries(lib 
     SDL3::SDL3 
     vk-bootstrap::vk-bootstrap
+    GPUOpen::VulkanMemoryAllocator
     )
 
 

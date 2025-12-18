@@ -1,13 +1,22 @@
 #include "vk_engine.h"
 
+#include <thread>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
 #include <vk_types.h>
 #include <vk_initializers.h>
 
+VulkanEngine* loadedEngine = nullptr;
+
+VulkanEngine& VulkanEngine::Get() { return *loadedEngine; }
+
 void VulkanEngine::init()
 {
+	// only one engine initialization is allowed with the application.
+    assert(loadedEngine == nullptr);
+    loadedEngine = this;
+
 	// We initialize SDL and create a window with it. 
 	SDL_Init(SDL_INIT_VIDEO);
 
@@ -29,6 +38,9 @@ void VulkanEngine::cleanup()
 		
 		SDL_DestroyWindow(_window);
 	}
+
+	 // clear engine pointer
+    loadedEngine = nullptr;
 }
 
 void VulkanEngine::draw()
@@ -40,6 +52,7 @@ void VulkanEngine::run()
 {
 	SDL_Event e;
 	bool bQuit = false;
+	bool stop_rendering = false;
 
 	//main loop
 	while (!bQuit)
@@ -48,8 +61,28 @@ void VulkanEngine::run()
 		while (SDL_PollEvent(&e) != 0)
 		{
 			//close the window when user alt-f4s or clicks the X button			
-			if (e.type == SDL_EVENT_QUIT) bQuit = true;
+			switch (e.type) {
+			
+			case SDL_EVENT_QUIT: 
+				bQuit = true;
+				break;
+
+			case SDL_EVENT_WINDOW_MINIMIZED: 
+				stop_rendering = true;
+				break;			
+
+			case SDL_EVENT_WINDOW_RESTORED:
+				stop_rendering = false;
+				break;
+			}
 		}
+
+		// do not draw if we are minimized
+        if (stop_rendering) {
+            // throttle the speed to avoid the endless spinning
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
+        }
 
 		draw();
 	}
