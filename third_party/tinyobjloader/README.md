@@ -1,0 +1,1 @@
+from https://github.com/tinyobjloader/tinyobjloader/tree/v1.0.6
