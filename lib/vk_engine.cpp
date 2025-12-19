@@ -11,7 +11,7 @@
 #include "VkBootstrap.h"
 
 VulkanEngine* loadedEngine = nullptr;
-constexpr bool bUseValidationLayers = true;
+constexpr bool useValidationLayers = true;
 
 VulkanEngine& VulkanEngine::Get() { return *loadedEngine; }
 
@@ -51,7 +51,7 @@ void VulkanEngine::init_vulkan()
 
 	//make the vulkan instance, with basic debug features
 	auto inst_ret = builder.set_app_name("Example Vulkan Application")
-		.request_validation_layers(bUseValidationLayers)
+		.request_validation_layers(useValidationLayers)
 		.use_default_debug_messenger()
 		.require_api_version(1, 3, 0)
 		.build();
@@ -95,6 +95,11 @@ void VulkanEngine::init_vulkan()
 	// Get the VkDevice handle used in the rest of a vulkan application
 	_device = vkbDevice.device;
 	_chosenGPU = physicalDevice.physical_device;
+
+	// use vkbootstrap to get a Graphics queue
+	_graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
+	_graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
 }
 void VulkanEngine::init_swapchain()
 {
@@ -136,7 +141,19 @@ void VulkanEngine::destroy_swapchain()
 
 void VulkanEngine::init_commands()
 {
-	//nothing yet
+	//create a command pool for commands submitted to the graphics queue.
+	//we also want the pool to allow for resetting of individual command buffers
+	VkCommandPoolCreateInfo commandPoolInfo =  vkinit::command_pool_create_info(_graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+
+	for (int i = 0; i < FRAME_OVERLAP; i++) {
+
+		VK_CHECK(vkCreateCommandPool(_device, &commandPoolInfo, nullptr, &_frames[i]._commandPool));
+
+		// allocate the default command buffer that we will use for rendering
+		VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_frames[i]._commandPool, 1);
+
+		VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_frames[i]._mainCommandBuffer));
+	}
 }
 void VulkanEngine::init_sync_structures()
 {
@@ -146,11 +163,17 @@ void VulkanEngine::cleanup()
 {	
 	if (_isInitialized) {
 
+		//make sure the gpu has stopped doing its things
+		vkDeviceWaitIdle(_device);
+
+		for (int i = 0; i < FRAME_OVERLAP; i++) {
+			vkDestroyCommandPool(_device, _frames[i]._commandPool, nullptr);
+		}
+
 		destroy_swapchain();
 
 		vkDestroySurfaceKHR(_instance, _surface, nullptr);
 		vkDestroyDevice(_device, nullptr);
-
 		vkb::destroy_debug_utils_messenger(_instance, _debug_messenger);
 		vkDestroyInstance(_instance, nullptr);
 		SDL_DestroyWindow(_window);
@@ -168,11 +191,11 @@ void VulkanEngine::draw()
 void VulkanEngine::run()
 {
 	SDL_Event e;
-	bool bQuit = false;
+	bool shouldQuit = false;
 	bool stop_rendering = false;
 
 	//main loop
-	while (!bQuit)
+	while (!shouldQuit)
 	{
 		//Handle events on queue
 		while (SDL_PollEvent(&e) != 0)
@@ -181,7 +204,7 @@ void VulkanEngine::run()
 			switch (e.type) {
 			
 			case SDL_EVENT_QUIT: 
-				bQuit = true;
+				shouldQuit = true;
 				break;
 
 			case SDL_EVENT_WINDOW_MINIMIZED: 

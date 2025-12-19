@@ -9,7 +9,8 @@ add_subdirectory(../third_party/SDL SDL3)
 # lib (include is for templates)
 add_library(lib STATIC
     vk_engine.cpp
-    )
+        vk_initializers.cpp
+)
 
 target_include_directories(lib PUBLIC 
     include 
