@@ -230,8 +230,9 @@ void VulkanEngine::draw()
 
 	//make a clear-color from frame number. This will flash with a 120 frame period.
 	VkClearColorValue clearValue;
-	float flash = std::abs(std::sin(_frameNumber / 120.f));
-	clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
+	float flashBlue = std::abs(std::sin(_frameNumber / 120.f));
+	float flashRed = std::abs(std::sin(_frameNumber / 240.f));
+	clearValue = { { flashRed, 0.0f, flashBlue, 1.0f } };
 
 	VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
 
